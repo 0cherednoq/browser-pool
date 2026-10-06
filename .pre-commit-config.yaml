@@ -1,0 +1,42 @@
+# Быстрые проверки перед коммитом. Полный набор — `uv run poe check`.
+# Установка: `uv run pre-commit install`.
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.8
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: check-yaml
+        args: [--allow-multiple-documents]  # rules/*.yml — несколько правил ast-grep в файле
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+  - repo: local
+    hooks:
+      # Инструменты — из .venv проекта, той же версии, что в `poe check`.
+      - id: import-linter
+        name: import-linter (архитектура)
+        entry: uv run poe arch
+        language: system
+        pass_filenames: false
+        types: [python]
+      - id: stdlib-only
+        name: ядро только на stdlib
+        entry: uv run poe stdlib
+        language: system
+        pass_filenames: false
+        files: ^(src/|pyproject\.toml$)
+      - id: ast-grep
+        name: ast-grep (правила библиотеки)
+        entry: uv run poe slop
+        language: system
+        pass_filenames: false
+        types: [python]

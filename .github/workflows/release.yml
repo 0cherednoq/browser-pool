@@ -1,0 +1,85 @@
+name: release
+
+# Выпуск по тегу `v<версия из pyproject.toml>`: полный набор проверок, сборка, проверка колеса в чистом
+# окружении, затем TestPyPI и PyPI. Публикация — trusted publishing (OIDC): токенов в секретах нет,
+# на PyPI и TestPyPI для репозитория настроены «trusted publishers» с окружениями `testpypi` и `pypi`.
+# Для окружения `pypi` стоит включить ручное подтверждение — между TestPyPI и PyPI можно посмотреть глазами.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    uses: ./.github/workflows/check.yml
+
+  build:
+    needs: check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.14"
+      - name: Тег совпадает с версией пакета
+        run: |
+          version=$(uv run --no-project python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+          test "v${version}" = "${GITHUB_REF_NAME}" || { echo "тег ${GITHUB_REF_NAME}, а версия ${version}"; exit 1; }
+      - run: uv build
+      - run: uvx twine check --strict dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  wheel:
+    # Колесо как у пользователя: чистое окружение, без экстр, крайние версии Python, обе ОС.
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ["3.12", "3.14"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - shell: bash
+        run: uv run --no-project python scripts/smoke_wheel.py dist/*.whl --python ${{ matrix.python }}
+
+  testpypi:
+    needs: wheel
+    runs-on: ubuntu-latest
+    environment: testpypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          # Повторный запуск после сбоя следующего шага: файлы этой версии на TestPyPI уже лежат.
+          skip-existing: true
+
+  pypi:
+    needs: testpypi
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1

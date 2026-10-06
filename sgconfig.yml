@@ -1,0 +1,3 @@
+# ast-grep: правила, которых нет в ruff. Запуск — `uv run poe slop`.
+ruleDirs:
+  - rules

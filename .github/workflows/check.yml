@@ -1,0 +1,81 @@
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:  # release.yml: перед выпуском — тот же полный набор
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    # Страж процессов и пути — платформенные: гоняем обе ОС с самого начала.
+    # Полный набор — на новейшем Python; линтеры и типизатор и так целятся в нижнюю версию (3.12).
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          python-version: "3.14"
+      # Экстры драйверов — чтобы тесты `@browser` шли, а не пропускались по importorskip.
+      - run: uv sync --locked --all-extras
+      - run: uv run playwright install --with-deps chromium
+      - run: uv run poe check
+
+  versions:
+    # Остальные поддерживаемые версии — то, что зависит от интерпретатора (как `poe matrix`):
+    # поведение, список модулей stdlib, аннотации во время выполнения.
+    # 3.13 — только Linux: браузерные прогоны дорогие, а платформенное покрыто крайними версиями.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, python: "3.12" }
+          - { os: windows-latest, python: "3.12" }
+          - { os: ubuntu-latest, python: "3.13" }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          python-version: ${{ matrix.python }}
+      - run: uv sync --locked --all-extras
+      - run: uv run playwright install --with-deps chromium
+      - run: uv run poe stdlib
+      - run: uv run poe docs
+      - run: uv run poe test
+
+  site:
+    # Сайт документации собирается без предупреждений: битые ссылки и ошибки разметки докстрингов.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          python-version: "3.14"
+      - run: uv sync --locked --all-extras --group docs
+      - run: uv run poe prose
+      - run: uv run poe site
+
+  lowest:
+    # Нижние границы зависимостей из pyproject.toml — обещание потребителю, а не догадка:
+    # самые старые разрешённые версии на самом старом Python.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          python-version: "3.12"
+      - run: uv sync --all-extras --resolution lowest-direct
+      - run: uv run playwright install --with-deps chromium
+      - run: uv run poe test

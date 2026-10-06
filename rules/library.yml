@@ -1,0 +1,58 @@
+# Правила библиотеки: то, что допустимо в приложении, но не в чужом процессе.
+id: secret-field-visible-in-repr
+language: python
+severity: error
+message: "Секрет попадёт в repr/логи: объявите поле как field(repr=False)"
+note: "Имя поля похоже на секрет: пароль, токен, cookie, креды, URL прокси, payload identity."
+files:
+  - "src/**"
+rule:
+  kind: assignment
+  has:
+    field: left
+    kind: identifier
+    regex: "(?i)(password|passwd|secret|token|cookie|credential|api_key|proxy_url|payload)"
+  not:
+    has:
+      field: right
+      regex: 'repr\s*=\s*False'
+  inside:
+    kind: expression_statement
+    inside:
+      kind: block
+      inside:
+        kind: class_definition
+        inside:
+          kind: decorated_definition
+          has:
+            kind: decorator
+            regex: "dataclass"
+---
+id: library-does-not-configure-logging
+language: python
+severity: error
+message: "Библиотека не настраивает логирование: обработчики и уровни — дело приложения"
+files:
+  - "src/**"
+rule:
+  any:
+    - pattern: $LOGGER.setLevel($$$)
+    - pattern: logging.config.$FUNC($$$)
+    - all:
+        - pattern: $LOGGER.addHandler($HANDLER)
+        - not:
+            has:
+              stopBy: end
+              pattern: NullHandler
+---
+id: library-does-not-own-event-loop
+language: python
+severity: error
+message: "Библиотека работает в цикле событий приложения: asyncio.run / new_event_loop здесь запрещены"
+files:
+  - "src/**"
+rule:
+  any:
+    - pattern: asyncio.run($$$)
+    - pattern: asyncio.new_event_loop($$$)
+    - pattern: asyncio.Runner($$$)

@@ -1,0 +1,15 @@
+/* Оформление сверх темы Shibuya. */
+
+/* Лид: первый абзац страницы сразу под заголовком. Разметки не требует, поэтому страница
+   одинаково читается на сайте и на GitHub. */
+.yue > section > p:first-of-type {
+  color: var(--sy-c-light);
+  font-size: 1.2rem;
+  margin-top: -0.25rem;
+  margin-bottom: 1.75rem;
+}
+
+/* Вывод примера под кодом: блок «Результат запуска». */
+.yue .admonition.run-result div[class*="highlight-"] {
+  margin: 0;
+}

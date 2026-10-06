@@ -1,0 +1,4 @@
+# Разработка на Windows, CI ещё и на Linux: в репозитории — только LF.
+* text=auto eol=lf
+*.png binary
+*.jpg binary

@@ -1,0 +1,380 @@
+[project]
+name = "browser-pool"  # импорт — `browser_pool`
+version = "0.1.0a1"
+description = "Оркестрация пула браузеров: контексты аккаунтов, сессии, прокси, жизненный цикл — поверх любого браузерного SDK"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.12"
+keywords = ["browser", "pool", "playwright", "pydoll", "automation", "scraping", "proxy", "session", "asyncio"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: AsyncIO",
+    "Intended Audience :: Developers",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Internet :: WWW/HTTP :: Browsers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+# Ядро без runtime-зависимостей. Проверяет `poe stdlib`, а не обещание.
+# SDK драйверов приходят экстрами — по одной, вместе со своим драйвером (M2.05, M3, M4).
+dependencies = []
+
+[project.urls]
+Repository = "https://github.com/0cherednoq/browser-pool"
+Changelog = "https://github.com/0cherednoq/browser-pool/blob/main/CHANGELOG.md"
+
+[project.optional-dependencies]
+playwright = [
+    "playwright>=1.55",
+]
+pydoll = [
+    "pydoll-python>=2.27.0,<4",
+]
+resources = [
+    "psutil>=6.0",
+]
+prometheus = [
+    "prometheus-client>=0.21",
+]
+testing = [
+    "pytest>=8.4",
+    "pytest-asyncio>=1.4",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.16",
+    "basedpyright>=1.40",
+    "import-linter>=2.15",
+    "complexipy>=8.0",
+    "ast-grep-cli>=0.45",
+    "poethepoet>=0.48",
+    "pytest>=9.1",
+    "pytest-asyncio>=1.4",
+    "hypothesis>=6.168",
+    "pre-commit>=4.6",
+]
+# Сайт документации: ставится отдельно — `uv sync --all-extras --group docs`.
+docs = [
+    "sphinx>=9",
+    "shibuya>=2026.1",
+    "myst-parser>=5",
+    "sphinx-design>=0.7",
+    "sphinx-copybutton>=0.5",
+    "sphinxcontrib-mermaid>=2",
+    "sphinx-llm-friendly>=0.5",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/browser_pool"]
+
+# sdist — то, что нужно, чтобы собрать и проверить пакет.
+[tool.hatch.build.targets.sdist]
+include = [
+    "src",
+    "tests",
+    "examples",
+    "scripts",
+    "rules",
+    "sgconfig.yml",
+    "docs/conf.py",
+    "docs/index.md",
+    "docs/_static",
+    "docs/_locale/ru/LC_MESSAGES/sphinx.po",
+    "docs/tutorial",
+    "docs/guide",
+    "docs/extending",
+    "docs/reference",
+    "docs/explanation",
+    "README.md",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "pyproject.toml",
+]
+
+# ---------- Команды качества (poethepoet) ----------
+# `uv run poe check` — полный набор. Зелёный `check` — часть «готово» для любого шага.
+# `uv run poe fix`   — автоисправление и форматирование.
+
+[tool.poe]
+# На Windows PATH может содержать shim'ы раньше venv проекта: инструменты берём строго из `.venv`.
+executor = "virtualenv"
+
+[tool.poe.tasks]
+_ruff_fix = "ruff check --fix ."
+_format = "ruff format ."
+# Форматирование идёт и тогда, когда у линтера остались неисправимые замечания.
+fix = { sequence = ["_ruff_fix", "_format"], ignore_fail = "return_non_zero" }
+
+_format_check = "ruff format --check ."
+_ruff = "ruff check ."
+lint = ["_format_check", "_ruff"]
+complexity = "complexipy src --plain --failed"
+types = "basedpyright"
+# Публичный API глазами потребителя: всё экспортируемое полностью типизировано.
+# Для библиотеки с `py.typed` это важнее, чем strict внутри: чужой pyright/mypy видит только это.
+api = "basedpyright --verifytypes browser_pool --ignoreexternal"
+# import-linter печатает псевдографику; консоль Windows в cp1251 падает на ней UnicodeEncodeError.
+arch = { cmd = "lint-imports", env = { PYTHONUTF8 = "1", PYTHONIOENCODING = "utf-8" } }
+stdlib = { cmd = "python scripts/check_stdlib_only.py", env = { PYTHONUTF8 = "1", PYTHONIOENCODING = "utf-8" } }
+slop = "ast-grep scan"
+# Справочники конфига, событий и ошибок генерируются из кода: устаревший — ошибка
+# (перегенерировать: python scripts/config_reference.py, python scripts/reference_tables.py).
+_docs_config = { cmd = "python scripts/config_reference.py --check", env = { PYTHONUTF8 = "1", PYTHONIOENCODING = "utf-8" } }
+_docs_tables = { cmd = "python scripts/reference_tables.py --check", env = { PYTHONUTF8 = "1", PYTHONIOENCODING = "utf-8" } }
+docs = ["_docs_config", "_docs_tables"]
+test = "pytest"
+# Проза документации без машинного стиля (длинное тире, знаки в прозе и прочее).
+prose = { cmd = "python scripts/prose.py", env = { PYTHONUTF8 = "1", PYTHONIOENCODING = "utf-8" } }
+# Сайт документации: любое предупреждение Sphinx — ошибка. В `check` не входит (нужна группа `docs`).
+site = { cmd = "sphinx-build -W --keep-going -b html docs docs/_build/html", env = { PYTHONUTF8 = "1", PYTHONIOENCODING = "utf-8" } }
+check = ["lint", "complexity", "types", "api", "arch", "stdlib", "slop", "docs", "test"]
+# Все поддерживаемые Python (3.12+): `check` в `.venv`, на остальных версиях — то, что зависит от
+# интерпретатора. Окружения `.venv-3.X` создаёт uv. `uv run poe matrix 3.12` — только одна версия.
+matrix = { cmd = "python scripts/matrix.py", env = { PYTHONUTF8 = "1", PYTHONIOENCODING = "utf-8" } }
+
+# ---------- Ruff: линтер и форматер ----------
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests", "scripts", "examples"]
+# Документация: код-блоки в ней иллюстративные (фрагменты без импортов) — форматировать нечего.
+extend-exclude = ["docs", "scripts/vendor"]
+
+[tool.ruff.format]
+docstring-code-format = true
+line-ending = "lf"
+
+[tool.ruff.lint]
+preview = true
+explicit-preview-rules = true
+select = [
+    # --- корректность ---
+    "F",        # pyflakes
+    "E", "W",   # pycodestyle
+    "B",        # bugbear
+    "ASYNC",    # ошибки asyncio: блокирующие вызовы в корутинах, потерянные таски
+    "RUF",      # правила ruff (RUF006: create_task без ссылки — таск соберёт GC)
+    "PL",       # pylint: ошибки, предупреждения, конвенции, рефакторинг
+    "PGH",      # голые `# type: ignore` / `# noqa` без кода
+    "BLE",      # `except Exception` без повторного raise
+    "TRY",      # анти-паттерны исключений
+    "RSE",      # лишние скобки в raise
+    "S",        # bandit
+    "DTZ",      # datetime без таймзоны
+    # --- API библиотеки ---
+    "ANN",      # полные аннотации: py.typed обещает типы потребителю
+    "FBT",      # boolean trap: флаги только keyword-only — `pool.stop(True)` нечитаем
+    "A",        # тень встроенных имён
+    "N",        # pep8-naming
+    "D1",       # докстринги у публичного (публичные сущности — с докстрингами)
+    "D300", "D301", "D419",
+    "SLOT",     # __slots__ у наследников str/tuple
+    "ARG",      # неиспользуемые аргументы
+    # --- стиль и модернизация ---
+    "I",        # сортировка импортов
+    "UP",       # современный синтаксис — насколько позволяет 3.12
+    "TC",       # импорты только для типов — под TYPE_CHECKING
+    "TID",      # запрещённые API и относительные импорты (см. banned-api ниже)
+    "ICN", "EXE", "YTT", "PIE", "FLY",
+    "EM",       # сообщение исключения — в переменную: `msg = ...; raise X(msg)`
+    "G", "LOG", # логирование: без f-строк в вызовах, без root-логгера
+    "SIM", "RET", "C4", "PERF", "FURB", "PTH",
+    "C90",      # цикломатическая сложность
+    "SLF",      # доступ к чужим приватным членам
+    "T20",      # print
+    "ERA",      # закомментированный код
+    "FIX",      # TODO/FIXME: долги — в трекере, а не в коде
+    "INP",      # пакет без __init__.py
+    "PT",       # стиль pytest
+    # --- preview-правила, включённые поимённо ---
+    "PLR0917",  # не больше 3 позиционных параметров: остальное keyword-only (стабильность API)
+    "PLR1702",  # вложенность блоков
+    "PLR6201",  # `in {..}` вместо `in [..]` для литералов
+]
+ignore = [
+    "E501",     # длину строк держит форматер
+    "RUF001", "RUF002", "RUF003",  # кириллица в строках, докстрингах, комментариях
+    "PLR0913",  # число параметров вообще: keyword-only параметры конфигурации — норма для
+                # библиотеки; ограничиваем позиционные (PLR0917)
+    "D105",     # докстринги у __dunder__ — очевидны
+    "D107",     # докстринг __init__ — описывается у класса
+    "TRY003",   # длинное сообщение в raise — у нас `msg = ...` (EM), это покрыто
+]
+
+[tool.ruff.lint.pylint]
+max-positional-args = 3
+max-nested-blocks = 3
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.isort]
+known-first-party = ["browser_pool", "examples"]
+# До 3.14 аннотации вычисляются при импорте (PEP 649 — только с 3.14): имя из-под TYPE_CHECKING
+# или ещё не объявленный класс в аннотации роняют импорт на 3.12/3.13. Отложенные аннотации — везде.
+required-imports = ["from __future__ import annotations"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+# SDK браузеров импортируются только в адаптерах — и там только лениво (TID253 ниже).
+# Это второй рубеж после `poe stdlib`: ловит ошибку прямо в редакторе.
+banned-module-level-imports = [
+    "playwright", "patchright", "rebrowser_playwright", "camoufox", "selenium", "seleniumbase",
+    "undetected_chromedriver", "pydoll", "nodriver", "zendriver", "psutil",
+]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"playwright".msg = "SDK браузера — только в browser_pool.drivers / providers"
+"patchright".msg = "SDK браузера — только в browser_pool.drivers / providers"
+"rebrowser_playwright".msg = "SDK браузера — только в browser_pool.drivers / providers"
+"camoufox".msg = "SDK браузера — только в browser_pool.drivers / providers"
+"selenium".msg = "SDK браузера — только в browser_pool.drivers / providers"
+"seleniumbase".msg = "SDK браузера — только в browser_pool.drivers / providers"
+"undetected_chromedriver".msg = "SDK браузера — только в browser_pool.drivers / providers"
+"pydoll".msg = "SDK браузера — только в browser_pool.drivers / providers"
+"nodriver".msg = "SDK браузера — только в browser_pool.drivers / providers"
+"zendriver".msg = "SDK браузера — только в browser_pool.drivers / providers"
+# Время — только через инжектируемые часы: иначе таймауты и TTL не проверить без ожидания.
+"time.time".msg = "Время — через инжектируемые часы пула (browser_pool.clock), а не напрямую"
+"time.monotonic".msg = "Время — через инжектируемые часы пула (browser_pool.clock), а не напрямую"
+"time.perf_counter".msg = "Время — через инжектируемые часы пула (browser_pool.clock), а не напрямую"
+"datetime.datetime.now".msg = "Время — через инжектируемые часы пула (browser_pool.clock), а не напрямую"
+"datetime.datetime.utcnow".msg = "Устарело и без таймзоны; время — через часы пула"
+"time.sleep".msg = "Блокирует цикл событий: библиотека асинхронная"
+"asyncio.get_event_loop".msg = "Устарело: asyncio.get_running_loop()"
+# Библиотека не настраивает логирование приложения: только logging.getLogger("browser_pool...").
+"logging.basicConfig".msg = "Библиотека не настраивает логирование — это решает приложение"
+
+[tool.ruff.lint.per-file-ignores]
+# Адаптеры — единственное место, где SDK браузеров разрешены; импорт — внутри функций (лениво).
+"src/browser_pool/drivers/**" = ["TID251", "PLC0415"]
+"src/browser_pool/providers/**" = ["TID251", "PLC0415"]
+"src/browser_pool/monitors/**" = ["PLC0415"]
+# Контрактный набор — это тесты, которые поставляются с библиотекой: assert и нарочные «пароли».
+"src/browser_pool/testing/contract.py" = ["S101", "S106"]
+# Примеры — код приложения (site SDK): SDK браузера, настройка логирования и print ему можно.
+"examples/**" = ["TID251", "T201"]
+# Первый пример документации: вложенные `async with` показывают, что пул живёт дольше аренды.
+"examples/start/minimal.py" = ["SIM117"]
+# Единственный законный источник настоящего времени.
+"src/browser_pool/clock.py" = ["TID251"]
+"tests/**" = [
+    "S101",     # assert — язык pytest
+    "S603",     # subprocess с sys.executable — проверка поставки в чистом процессе
+    "S105", "S106",  # «пароли» в тестах — нарочные строки, по ним проверяется, что секрет не утёк
+    "D1",       # тесты называются так, что докстринг не нужен
+    "ANN",      # фикстуры и параметры тестов
+    "PLR2004",  # магические числа в ожиданиях
+    "SLF001",   # тесты смотрят внутрь
+    "ARG", "FBT", "INP001", "PLC0415",
+    "TID251",   # тесты вправе звать SDK и настоящее время
+    "TC",       # импорты для аннотаций — прямые: время импорта в тестах не важно, а так читается проще
+    "ASYNC240", # тест смотрит в свой временный каталог после действия — цикл тут ничего не ждёт
+]
+"scripts/**" = ["T201", "INP001", "D1"]
+
+# ---------- Когнитивная сложность ----------
+
+[tool.complexipy]
+paths = ["src"]
+max-complexity-allowed = 15
+
+# ---------- Типизация ----------
+
+[tool.basedpyright]
+pythonVersion = "3.12"
+include = ["src", "tests", "scripts", "examples"]
+exclude = ["**/__pycache__", "scripts/vendor"]
+venvPath = "."
+venv = ".venv"
+typeCheckingMode = "strict"
+failOnWarnings = true
+# Сверх strict — то, что в библиотеке ловит реальные ошибки, а не вкус:
+reportUnreachable = "error"                  # мёртвые ветки: признак неверной модели состояний
+reportDeprecated = "error"
+reportImplicitOverride = "error"             # @override у реализаций протоколов и наследников
+reportUnnecessaryTypeIgnoreComment = "error"
+reportIgnoreCommentWithoutRule = "error"     # `# pyright: ignore[rule]`, а не голый ignore
+reportImportCycles = "error"
+reportPrivateLocalImportUsage = "error"
+# Осознанно выключено: `Any` в `extra: Mapping[str, Any]` — проброс нативных kwargs SDK.
+reportAny = "none"
+reportExplicitAny = "none"
+reportUnusedCallResult = "none"
+
+# ---------- Тесты ----------
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = ["-ra", "--strict-markers", "--strict-config", "--import-mode=importlib"]
+xfail_strict = true
+# Библиотека не имеет права шуметь предупреждениями у потребителя: любое — ошибка теста.
+filterwarnings = ["error"]
+markers = [
+    "browser: нужен настоящий браузер (playwright install chromium и т.п.)",
+    "manual: ручной чек-лист, в CI не запускается (окна, headed-отладка)",
+]
+
+# ---------- Архитектурные контракты (import-linter) ----------
+# Архитектура описана заранее целиком: слой в скобках — опциональный, его модуля
+# может ещё не быть. `exhaustive` не даёт появиться модулю, которого нет в схеме: новый файл
+# верхнего уровня обязан быть сознательно отнесён к слою. Не ослаблять — менять схему явно.
+
+[tool.importlinter]
+root_package = "browser_pool"
+include_external_packages = true
+# Импорты под TYPE_CHECKING не создают зависимости времени выполнения. Сторонние пакеты
+# в них при этом всё равно запрещены — это проверяет `poe stdlib`.
+exclude_type_checking_imports = true
+
+# 1. Слои: верхний может импортировать нижний, не наоборот.
+#    `|` — независимые соседи (не импортируют друг друга), `:` — соседи без ограничений.
+[[tool.importlinter.contracts]]
+name = "layers"
+type = "layers"
+containers = ["browser_pool"]
+exhaustive = true
+layers = [
+    # Адаптеры и тестовый набор: знают всё ниже, их не знает никто в библиотеке.
+    "(drivers) | (providers) | (monitors) | (testing)",
+    # Фасад: BrowserPool собирает ядро, окна, хуки.
+    "(pool)",
+    # Оркестрация: планировщик, супервизор, контексты, вкладки, сессии, локи, страж процессов.
+    # Окна — рядом с ядром и независимо от него: раскладка не должна влиять на аренду.
+    "(_core) | (windows)",
+    # Контракты и модель: протокол драйвера (вместе с WindowControl — это его часть),
+    # identity, аренда, конфиг, события, снимок, ошибки, часы.
+    "(flow) : (driver) : (provider) : (host) : (evidence) : (identity) : (lease) : (hooks) : (config) : (events) : (snapshot) : (errors)",
+    # Чистые предметные листья: не знают ни про пул, ни друг про друга.
+    # Свои ошибки определяют сами (наследники ValueError), `errors` их может переэкспортировать.
+    # Геометрия, локи, страж процессов и отладочный учёт вкладок — тоже листья: публичные типы, которых не знает пул.
+    "(state) | (proxies) | (geometry) | (locks) | (procguard) | (debug)",
+    # Часы — фундамент: чистый модуль без зависимостей, их читают все, включая листья.
+    "(clock) | (_choice) | (_filename)",
+]
+
+# 2. Драйверы не знают друг о друге; провайдеры — тоже. Общее — только в слоях ниже.
+[[tool.importlinter.contracts]]
+name = "drivers-independent"
+type = "independence"
+modules = ["browser_pool.drivers.*"]
+
+[[tool.importlinter.contracts]]
+name = "providers-independent"
+type = "independence"
+modules = ["browser_pool.providers.*"]

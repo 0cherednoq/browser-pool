@@ -1,0 +1,51 @@
+# Русские подписи интерфейса темы Shibuya: своего перевода на русский у темы нет.
+# Sphinx сам собирает из этого файла `sphinx.mo` при сборке сайта (`locale_dirs` в `docs/conf.py`).
+msgid ""
+msgstr ""
+"Project-Id-Version: browser-pool\n"
+"Language: ru\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "On this page"
+msgstr "На этой странице"
+
+msgid "Edit this page"
+msgstr "Править страницу"
+
+msgid "Back to top"
+msgstr "Наверх"
+
+msgid "Home"
+msgstr "Главная"
+
+msgid "Versions"
+msgstr "Версии"
+
+msgid "Translations"
+msgstr "Переводы"
+
+msgid "Discussion"
+msgstr "Обсуждение"
+
+msgid "View Source"
+msgstr "Исходник страницы"
+
+msgid "Copy page"
+msgstr "Скопировать страницу"
+
+msgid "More actions"
+msgstr "Другие действия"
+
+msgid "View as Markdown"
+msgstr "Открыть как Markdown"
+
+msgid "Switch to auto color mode"
+msgstr "Тема как в системе"
+
+msgid "Switch to dark color mode"
+msgstr "Тёмная тема"
+
+msgid "Switch to light color mode"
+msgstr "Светлая тема"

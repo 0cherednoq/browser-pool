@@ -1,0 +1,31 @@
+# Следы небрежной генерации кода: заглушки и фразы из чата в исходниках.
+id: no-not-implemented-stub
+language: python
+severity: error
+message: "Заглушка NotImplementedError — реализуйте или удалите. Протокол описывается телом `...`"
+files:
+  - "src/**"
+rule:
+  any:
+    - pattern: raise NotImplementedError
+    - pattern: raise NotImplementedError($$$)
+---
+id: no-ai-phrases-in-comments
+language: python
+severity: error
+message: "Слоп-фраза в комментарии: комментарий объясняет причину, а не пересказывает чат"
+files:
+  - "src/**"
+rule:
+  kind: comment
+  regex: "(?i)(as an ai|language model|sure, here|here'?s the (code|implementation)|конечно, вот|ниже приведён|здесь будет код|заглушка|placeholder|implement later|fill in)"
+---
+id: no-ai-phrases-in-strings
+language: python
+severity: error
+message: "Слоп-фраза в строке — похоже на вставленный ответ ИИ"
+files:
+  - "src/**"
+rule:
+  kind: string
+  regex: "(?i)(as an ai|language model|i'?m unable to|конечно, вот|ниже приведён)"
