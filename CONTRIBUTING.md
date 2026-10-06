@@ -11,7 +11,7 @@ uv run python scripts/soak.py --driver playwright --minutes 30   # длинны�
 ```
 
 Выпуск запускается тегом `v<версия>` (`.github/workflows/release.yml`): полный набор проверок, сборка, `twine check`, колесо в
-чистом окружении на Linux и Windows под 3.12 и 3.14, затем TestPyPI и PyPI (trusted publishing). То же колесо локально:
+чистом окружении на Linux и Windows под 3.12 и 3.14, затем PyPI (trusted publishing). То же колесо локально:
 
 ```bash
 uv build && uv run python scripts/smoke_wheel.py dist/browser_pool-*.whl --python 3.12

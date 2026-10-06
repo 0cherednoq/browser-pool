@@ -1,9 +1,9 @@
 name: release
 
 # Выпуск по тегу `v<версия из pyproject.toml>`: полный набор проверок, сборка, проверка колеса в чистом
-# окружении, затем TestPyPI и PyPI. Публикация — trusted publishing (OIDC): токенов в секретах нет,
-# на PyPI и TestPyPI для репозитория настроены «trusted publishers» с окружениями `testpypi` и `pypi`.
-# Для окружения `pypi` стоит включить ручное подтверждение — между TestPyPI и PyPI можно посмотреть глазами.
+# окружении, затем PyPI. Публикация — trusted publishing (OIDC): токенов в секретах нет,
+# на PyPI для репозитория настроен «trusted publisher» с окружением `pypi`.
+# Для окружения `pypi` стоит включить ручное подтверждение — пауза перед необратимой публикацией.
 
 on:
   push:
@@ -54,25 +54,8 @@ jobs:
       - shell: bash
         run: uv run --no-project python scripts/smoke_wheel.py dist/*.whl --python ${{ matrix.python }}
 
-  testpypi:
-    needs: wheel
-    runs-on: ubuntu-latest
-    environment: testpypi
-    permissions:
-      id-token: write
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: dist
-          path: dist/
-      - uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          repository-url: https://test.pypi.org/legacy/
-          # Повторный запуск после сбоя следующего шага: файлы этой версии на TestPyPI уже лежат.
-          skip-existing: true
-
   pypi:
-    needs: testpypi
+    needs: wheel
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
