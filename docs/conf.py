@@ -71,7 +71,9 @@ nitpick_ignore_regex = [
     ("py:class", r"(Browser|BrowserContext|Page|Tab|CollectorRegistry)"),
     ("py:class", r"(ContractSite|LeaseControl)"),
     ("py:class", r"browser_pool\.(\w+\.)*_\w+"),
+    # `asyncio.SelectorEventLoop` — на каждой ОС свой приватный класс.
     ("py:class", r"asyncio\.windows_events\._WindowsSelectorEventLoop"),
+    ("py:class", r"asyncio\.unix_events\._UnixSelectorEventLoop"),
 ]
 
 myst_enable_extensions = [

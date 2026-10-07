@@ -13,7 +13,7 @@ from browser_pool.config import Limits, Recycling, Topology, Windows
 from browser_pool.driver import WindowBounds, WindowState
 from browser_pool.geometry import Rect
 from browser_pool.testing import FAKE_CAPABILITIES, FakeBrowser, FakeContext, FakeDriver, FakePage
-from browser_pool.windows.manager import WindowManager
+from browser_pool.windows.manager import WindowManager, display_available
 
 WINDOWED = dataclasses.replace(FAKE_CAPABILITIES, window_control="runtime", new_window=True)
 ACCOUNTS = [Identity(key=f"mail:{index}") for index in range(8)]
@@ -238,3 +238,33 @@ def test_headless_flag_of_a_shipped_driver_switches_the_windows_section_off(
     assert not headless.shown
     assert "headless" in (headless.problem() or "")
     assert undecided.shown  # None — решает пул
+
+
+# --- процесс без экрана: секция выключается сама ------------------------------------------------
+
+
+def test_linux_without_a_display_has_no_screen(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("sys.platform", "linux")
+    monkeypatch.delenv("DISPLAY", raising=False)
+    monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
+    assert not display_available()
+
+    monkeypatch.setenv("DISPLAY", ":0")
+    assert display_available()
+
+
+def test_process_without_a_screen_switches_the_windows_section_off(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("browser_pool.windows.manager.display_available", lambda: False)
+
+    manager = WindowManager[Any, Any](
+        windowed_driver(),
+        config=Windows(mode="per_context"),
+        locate=lambda key: None,
+        emit=lambda event: None,
+        timeout=1.0,
+    )
+
+    assert not manager.shown
+    assert "нет экрана" in (manager.problem() or "")

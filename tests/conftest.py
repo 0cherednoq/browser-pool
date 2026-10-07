@@ -11,6 +11,15 @@ import pytest
 pytest_plugins = ["pytester", "browser_pool.testing.pytest_plugin"]
 
 
+@pytest.fixture(autouse=True)
+def _screen_is_there(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Тесты окон не зависят от экрана машины: на Linux без `DISPLAY` (CI) пул выключил бы секцию окон.
+
+    Настоящие браузеры в тестах окон идут headless через аргумент, экран им не нужен.
+    """
+    monkeypatch.setattr("browser_pool.windows.manager.display_available", lambda: True)
+
+
 def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption(
         "--manual",
