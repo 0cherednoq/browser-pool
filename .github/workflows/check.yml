@@ -42,6 +42,14 @@ jobs:
       # Системные библиотеки Chromium в кэш не попадают: на Linux ставятся каждый раз.
       - if: steps.browsers.outputs.cache-hit == 'true' && runner.os == 'Linux'
         run: uv run playwright install-deps chromium
+      # Первый запуск системного Chrome на раннере занимает десятки секунд: тесты pydoll ждут
+      # ответа браузера 10 секунд и падали бы на холодном старте.
+      - name: Прогреть Chrome
+        if: runner.os == 'Linux'
+        run: |
+          start=$(date +%s)
+          timeout 120 google-chrome --headless=new --no-first-run --dump-dom about:blank > /dev/null 2>&1 || echo "прогрев не удался"
+          echo "Chrome прогрет за $(( $(date +%s) - start )) с"
       - run: uv run poe check
 
   versions:
@@ -77,6 +85,14 @@ jobs:
       # Системные библиотеки Chromium в кэш не попадают: на Linux ставятся каждый раз.
       - if: matrix.browser && steps.browsers.outputs.cache-hit == 'true' && runner.os == 'Linux'
         run: uv run playwright install-deps chromium
+      # Первый запуск системного Chrome на раннере занимает десятки секунд: тесты pydoll ждут
+      # ответа браузера 10 секунд и падали бы на холодном старте.
+      - name: Прогреть Chrome
+        if: matrix.browser && runner.os == 'Linux'
+        run: |
+          start=$(date +%s)
+          timeout 120 google-chrome --headless=new --no-first-run --dump-dom about:blank > /dev/null 2>&1 || echo "прогрев не удался"
+          echo "Chrome прогрет за $(( $(date +%s) - start )) с"
       - run: uv run poe stdlib
       - run: uv run poe docs
       - if: matrix.browser
@@ -119,4 +135,12 @@ jobs:
       # Системные библиотеки Chromium в кэш не попадают: на Linux ставятся каждый раз.
       - if: steps.browsers.outputs.cache-hit == 'true' && runner.os == 'Linux'
         run: uv run playwright install-deps chromium
+      # Первый запуск системного Chrome на раннере занимает десятки секунд: тесты pydoll ждут
+      # ответа браузера 10 секунд и падали бы на холодном старте.
+      - name: Прогреть Chrome
+        if: runner.os == 'Linux'
+        run: |
+          start=$(date +%s)
+          timeout 120 google-chrome --headless=new --no-first-run --dump-dom about:blank > /dev/null 2>&1 || echo "прогрев не удался"
+          echo "Chrome прогрет за $(( $(date +%s) - start )) с"
       - run: uv run poe test
