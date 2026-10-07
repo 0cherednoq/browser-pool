@@ -9,6 +9,11 @@ on:
 permissions:
   contents: read
 
+# Новый push в ту же ветку отменяет прежний прогон: ждать устаревший результат незачем.
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   check:
     # Страж процессов и пути — платформенные: гоняем обе ОС с самого начала.
@@ -26,7 +31,17 @@ jobs:
           python-version: "3.14"
       # Экстры драйверов — чтобы тесты `@browser` шли, а не пропускались по importorskip.
       - run: uv sync --locked --all-extras
-      - run: uv run playwright install --with-deps chromium
+      # Браузеры Playwright — из кэша: скачивание и распаковка на Windows занимают минуты.
+      - uses: actions/cache@v4
+        id: browsers
+        with:
+          path: ${{ runner.os == 'Windows' && '~\AppData\Local\ms-playwright' || '~/.cache/ms-playwright' }}
+          key: playwright-${{ runner.os }}-${{ hashFiles('uv.lock') }}
+      - if: steps.browsers.outputs.cache-hit != 'true'
+        run: uv run playwright install --with-deps chromium
+      # Системные библиотеки Chromium в кэш не попадают: на Linux ставятся каждый раз.
+      - if: steps.browsers.outputs.cache-hit == 'true' && runner.os == 'Linux'
+        run: uv run playwright install-deps chromium
       - run: uv run poe check
 
   versions:
@@ -48,7 +63,17 @@ jobs:
           enable-cache: true
           python-version: ${{ matrix.python }}
       - run: uv sync --locked --all-extras
-      - run: uv run playwright install --with-deps chromium
+      # Браузеры Playwright — из кэша: скачивание и распаковка на Windows занимают минуты.
+      - uses: actions/cache@v4
+        id: browsers
+        with:
+          path: ${{ runner.os == 'Windows' && '~\AppData\Local\ms-playwright' || '~/.cache/ms-playwright' }}
+          key: playwright-${{ runner.os }}-${{ hashFiles('uv.lock') }}
+      - if: steps.browsers.outputs.cache-hit != 'true'
+        run: uv run playwright install --with-deps chromium
+      # Системные библиотеки Chromium в кэш не попадают: на Linux ставятся каждый раз.
+      - if: steps.browsers.outputs.cache-hit == 'true' && runner.os == 'Linux'
+        run: uv run playwright install-deps chromium
       - run: uv run poe stdlib
       - run: uv run poe docs
       - run: uv run poe test
@@ -77,5 +102,15 @@ jobs:
           enable-cache: true
           python-version: "3.12"
       - run: uv sync --all-extras --resolution lowest-direct
-      - run: uv run playwright install --with-deps chromium
+      # Браузеры Playwright — из кэша: скачивание и распаковка на Windows занимают минуты.
+      - uses: actions/cache@v4
+        id: browsers
+        with:
+          path: ${{ runner.os == 'Windows' && '~\AppData\Local\ms-playwright' || '~/.cache/ms-playwright' }}
+          key: playwright-lowest-${{ runner.os }}-${{ hashFiles('pyproject.toml') }}
+      - if: steps.browsers.outputs.cache-hit != 'true'
+        run: uv run playwright install --with-deps chromium
+      # Системные библиотеки Chromium в кэш не попадают: на Linux ставятся каждый раз.
+      - if: steps.browsers.outputs.cache-hit == 'true' && runner.os == 'Linux'
+        run: uv run playwright install-deps chromium
       - run: uv run poe test

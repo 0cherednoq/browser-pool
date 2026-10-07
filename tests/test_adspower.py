@@ -312,27 +312,31 @@ class ChromeProfiles:
 
     def start(self, user_id: str) -> str:
         port = _free_port()
-        process = subprocess.Popen(
-            [
-                self.binary,
-                "--headless=new",
-                f"--remote-debugging-port={port}",
-                f"--user-data-dir={self.root / user_id}",
-                "--no-first-run",
-                "--no-default-browser-check",
-            ],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
+        log = self.root / f"{user_id}.stderr"
+        with log.open("wb") as stderr:  # процесс держит свою копию дескриптора
+            process = subprocess.Popen(
+                [
+                    self.binary,
+                    "--headless=new",
+                    f"--remote-debugging-port={port}",
+                    f"--user-data-dir={self.root / user_id}",
+                    "--no-first-run",
+                    "--no-default-browser-check",
+                ],
+                stdout=subprocess.DEVNULL,
+                stderr=stderr,
+            )
         self.processes[user_id] = process
-        deadline = time.monotonic() + 15
-        while time.monotonic() < deadline:
+        # Первый запуск Chrome на машине CI холодный; предел — меньше `Timeouts.startup` пула.
+        deadline = time.monotonic() + 25
+        while time.monotonic() < deadline and process.poll() is None:
             with contextlib.suppress(OSError):
                 address = f"http://127.0.0.1:{port}/json/version"
                 with urllib.request.urlopen(address, timeout=1) as response:
                     return cast("str", json.loads(response.read())["webSocketDebuggerUrl"])
             time.sleep(0.1)
-        msg = "Chrome профиля не открыл порт отладки"
+        errors = log.read_text("utf-8", "replace")[-2000:]
+        msg = f"Chrome профиля не открыл порт отладки (код выхода {process.poll()}): {errors}"
         raise RuntimeError(msg)
 
     def stop(self, user_id: str) -> None:
