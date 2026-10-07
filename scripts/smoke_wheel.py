@@ -57,6 +57,11 @@ def main() -> int:
         for name, value in os.environ.items()
         if name not in {"PYTHONHOME", "VIRTUAL_ENV", "PYTHONPATH"}
     }
+    # Сообщения — по-русски: консоль в cp1252 (раннеры CI на Windows) падала бы на первой же строке.
+    env["PYTHONUTF8"] = "1"
+    reconfigure = getattr(sys.stdout, "reconfigure", None)
+    if reconfigure is not None:
+        reconfigure(encoding="utf-8")
     with tempfile.TemporaryDirectory(prefix="smoke-") as root:
         venv = Path(root) / "venv"
         python = venv / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
