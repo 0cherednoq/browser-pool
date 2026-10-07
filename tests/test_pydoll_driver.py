@@ -247,19 +247,25 @@ ZONE = "Intl.DateTimeFormat().resolvedOptions().timeZone"
 
 async def test_cancelled_launch_leaves_no_chrome(monkeypatch: pytest.MonkeyPatch) -> None:
     started: list[subprocess.Popen[bytes]] = []
+    spawned = asyncio.Event()
     spawn = pydoll_driver._quiet_process  # pyright: ignore[reportPrivateUsage]
 
     def recording(command: list[str]) -> subprocess.Popen[bytes]:
         process = spawn(command)
         started.append(process)
+        spawned.set()
         return process
 
     monkeypatch.setattr(pydoll_driver, "_quiet_process", recording)
     driver = PydollDriver()
 
-    with pytest.raises(TimeoutError):
-        async with asyncio.timeout(0.3):  # тайм-аут пула посреди запуска
-            await driver.launch(LaunchSpec())
+    # Тайм-аут пула посреди запуска — это отмена. Отменяем, как только процесс появился: фиксированный
+    # срок зависел бы от скорости машины (быстрый Chrome успевал стартовать целиком).
+    launch = asyncio.ensure_future(driver.launch(LaunchSpec()))
+    await asyncio.wait_for(spawned.wait(), timeout=30)
+    launch.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await launch
 
     assert started, "процесс не успел стартовать — тест ничего не проверил"
     assert all(process.poll() is not None for process in started)
