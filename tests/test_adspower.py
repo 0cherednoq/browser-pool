@@ -15,6 +15,7 @@ import os
 import shutil
 import socket
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -371,11 +372,19 @@ def profiles() -> Generator[ChromeProfiles]:
             chrome.close()
 
 
+# На Linux-раннерах CI холодный старт системного Chrome непредсказуемо долгий: тесты там временно
+# выключены, на Windows идут.
+chrome_starts_in_time = pytest.mark.skipif(
+    sys.platform.startswith("linux"), reason="холодный старт Chrome на Linux нестабилен"
+)
+
+
 def browser_config() -> PoolConfig:
     return PoolConfig(topology=Topology(browsers=1), limits=Limits(spawn_delay=0.0))
 
 
 @pytest.mark.browser
+@chrome_starts_in_time
 async def test_playwright_works_in_the_profile_context(profiles: ChromeProfiles) -> None:
     pytest.importorskip("playwright.async_api")
     from browser_pool.drivers.playwright import PlaywrightDriver
@@ -395,6 +404,7 @@ async def test_playwright_works_in_the_profile_context(profiles: ChromeProfiles)
 
 
 @pytest.mark.browser
+@chrome_starts_in_time
 @pytest.mark.filterwarnings("ignore:'asyncio.iscoroutinefunction':DeprecationWarning")
 async def test_pydoll_works_in_the_profile_context(profiles: ChromeProfiles) -> None:
     pytest.importorskip("pydoll")
