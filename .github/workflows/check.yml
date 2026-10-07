@@ -48,13 +48,15 @@ jobs:
     # Остальные поддерживаемые версии — то, что зависит от интерпретатора (как `poe matrix`):
     # поведение, список модулей stdlib, аннотации во время выполнения.
     # 3.13 — только Linux: браузерные прогоны дорогие, а платформенное покрыто крайними версиями.
+    # Windows на 3.12 — без настоящего браузера: он от версии Python не зависит, а Windows с браузером
+    # уже идёт в `check`; тесты на подставном драйвере проверяют всё, что зависит от интерпретатора.
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { os: ubuntu-latest, python: "3.12" }
-          - { os: windows-latest, python: "3.12" }
-          - { os: ubuntu-latest, python: "3.13" }
+          - { os: ubuntu-latest, python: "3.12", browser: true }
+          - { os: windows-latest, python: "3.12", browser: false }
+          - { os: ubuntu-latest, python: "3.13", browser: true }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -65,18 +67,22 @@ jobs:
       - run: uv sync --locked --all-extras
       # Браузеры Playwright — из кэша: скачивание и распаковка на Windows занимают минуты.
       - uses: actions/cache@v4
+        if: matrix.browser
         id: browsers
         with:
           path: ${{ runner.os == 'Windows' && '~\AppData\Local\ms-playwright' || '~/.cache/ms-playwright' }}
           key: playwright-${{ runner.os }}-${{ hashFiles('uv.lock') }}
-      - if: steps.browsers.outputs.cache-hit != 'true'
+      - if: matrix.browser && steps.browsers.outputs.cache-hit != 'true'
         run: uv run playwright install --with-deps chromium
       # Системные библиотеки Chromium в кэш не попадают: на Linux ставятся каждый раз.
-      - if: steps.browsers.outputs.cache-hit == 'true' && runner.os == 'Linux'
+      - if: matrix.browser && steps.browsers.outputs.cache-hit == 'true' && runner.os == 'Linux'
         run: uv run playwright install-deps chromium
       - run: uv run poe stdlib
       - run: uv run poe docs
-      - run: uv run poe test
+      - if: matrix.browser
+        run: uv run poe test
+      - if: ${{ !matrix.browser }}
+        run: uv run poe test -m "not browser"
 
   site:
     # Сайт документации собирается без предупреждений: битые ссылки и ошибки разметки докстрингов.

@@ -327,8 +327,9 @@ class ChromeProfiles:
                 stderr=stderr,
             )
         self.processes[user_id] = process
-        # Первый запуск Chrome на машине CI холодный; предел — меньше `Timeouts.startup` пула.
-        deadline = time.monotonic() + 25
+        # Первый запуск Chrome на машине CI холодный (десятки секунд); предел — меньше ожидания
+        # ответа API у провайдера (60 с), иначе вместо этой ошибки придёт его таймаут.
+        deadline = time.monotonic() + 50
         while time.monotonic() < deadline and process.poll() is None:
             with contextlib.suppress(OSError):
                 address = f"http://127.0.0.1:{port}/json/version"
